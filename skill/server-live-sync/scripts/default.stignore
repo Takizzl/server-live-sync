@@ -1,0 +1,35 @@
+// Syncthing metadata and version-control internals
+.stfolder
+.stversions
+(?d).git
+
+// Regenerable caches, dependencies, environments, and editor artifacts
+(?d)__pycache__
+(?d).pytest_cache
+(?d).mypy_cache
+(?d).ruff_cache
+(?d).cache
+(?d)node_modules
+(?d).venv
+(?d)venv
+(?d).idea
+(?d).vscode
+*.py[cod]
+*.swp
+*~
+
+// Model artifacts, archives, and media
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.mp4
+*.mov
+*.avi
+*.mkv

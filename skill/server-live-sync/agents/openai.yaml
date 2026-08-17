@@ -1,0 +1,4 @@
+interface:
+  display_name: "Server Live Sync"
+  short_description: "Mirror SSH server projects locally in real time"
+  default_prompt: "Use $server-live-sync to safely mirror one server project to my local computer."
