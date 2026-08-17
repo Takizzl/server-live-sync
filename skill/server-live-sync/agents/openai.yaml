@@ -1,4 +1,4 @@
 interface:
-  display_name: "Server Live Sync"
-  short_description: "Mirror SSH server projects locally in real time"
-  default_prompt: "Use $server-live-sync to safely mirror one server project to my local computer."
+  display_name: "科研自动化——Server Live Sync"
+  short_description: "将科研服务器项目与日志安全地实时镜像到本地电脑并保持自动同步"
+  default_prompt: "Use $server-live-sync to safely mirror one research server project to my local computer."

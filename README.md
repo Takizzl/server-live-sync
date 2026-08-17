@@ -1,4 +1,4 @@
-# Server Live Sync
+# 科研自动化——Server Live Sync
 
 [English](#english) | 中文
 

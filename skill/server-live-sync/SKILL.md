@@ -3,7 +3,7 @@ name: server-live-sync
 description: Configure, verify, and troubleshoot safe real-time Syncthing mirrors from an explicit project on an SSH-accessible Linux server to a local Windows, macOS, or Linux computer. Use when a user asks Codex to mirror server code or logs locally, add another live-synced project, check synchronization health, or repair a project mirror without copying weights, archives, videos, caches, or virtual environments.
 ---
 
-# Server Live Sync
+# 科研自动化——Server Live Sync
 
 Configure one explicit project at a time. Keep the server folder `sendonly` and the local folder `receiveonly`.
 
