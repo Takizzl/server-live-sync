@@ -2,9 +2,9 @@
 
 [English](#english) | 中文
 
-很多科研项目运行在远程服务器上：服务器端的 Agent 编写代码、运行实验，本地 Agent 阅读中间文档和训练日志，继续分析结果并规划下一步。这个 Skill 用来连接两端，让本地及时拿到服务器生成的代码和日志。
+**动机：**为什么会有这个Skill？在做科研时，很多伙伴的代码都在服务器上，服务器上有一个**agent负责编写代码**，而本地电脑上有一个**agent负责提供idea**，我们想把服务器产生的中间文档、训练日志，让我本地的agent实时阅读，然后进行下一步idea验证，就有可能会用到这个服务器与本地文件同步的功能，因此让codex写了这个skill。
 
-它使用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
+**作用：**用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
 
 每个项目只需配置一次。以后服务器上新增、修改、重命名或删除文件，本地会自动跟进。电脑关机期间不会同步；重新开机并连接后会补齐变化。
 
@@ -66,9 +66,9 @@ brew install syncthing
 
 ### SSH 主机
 
-`gpu-box` 是 SSH 主机，可以是服务器 IP、域名，也可以是 `~/.ssh/config` 中配置的别名。Windows 的 SSH 配置文件通常位于 `%USERPROFILE%\.ssh\config`。
+`gpu-box` 是 SSH 主机，可以是服务器 IP、域名，也可以是 `~/.ssh/config` 中配置的别名。Windows 的 SSH 配置文件通常位于 `C:\\Users\\taki\\.ssh\\config`，taki是电脑用户名
 
-下面是 Windows SSH 配置示例，图中的 IP 已打码：
+下面是 Windows SSH 配置示例：
 
 <p align="center">
   <img src="assets/ssh-config-example.png" alt="Windows SSH config example" width="680">
@@ -76,10 +76,9 @@ brew install syncthing
 
 ### 本地保存路径
 
-`~` 表示当前用户的主目录，不代表任意磁盘上的代码目录。在 Windows 上：
+在 Windows 上：
 
-- 用户名为 `Alice` 时，`~/code/vla` 通常是 `C:\Users\Alice\code\vla`
-- 如果希望放到 D 盘，必须明确写成 `D:\Projects\vla`
+- 放到 D 盘，必须明确写成 `D:\Projects\vla`
 
 本地路径可以自由更换，文件夹名称也不必与服务器项目名一致。建议 Windows 用户直接提供完整路径。
 
@@ -205,7 +204,17 @@ python scripts/live_sync.py doctor --ssh-host gpu-box
 
 ## English
 
-Server Live Sync is a Codex skill that mirrors one explicit project from an SSH-accessible Linux server to a local Windows, Linux, or macOS computer using Syncthing.
+### Motivation
+
+Research work often spans two machines. An agent on the server writes code and runs experiments, while an agent on the local computer reads intermediate notes and training logs to analyze results and suggest the next experiment. Server Live Sync keeps those files available locally as they change.
+
+### What it does
+
+The skill uses Syncthing to mirror one explicit project from an SSH-accessible Linux server to a local Windows, Linux, or macOS computer. The server folder is `sendonly` and the local folder is `receiveonly`, so the server remains the source of truth.
+
+Each project is configured once. New files, edits, renames, and deletions on the server are then reflected locally. If either computer is offline, synchronization pauses and catches up when both devices reconnect.
+
+### Installation
 
 Install it by asking Codex:
 
@@ -214,19 +223,49 @@ Install the server-live-sync skill from:
 https://github.com/Takizzl/server-live-sync/tree/main/skill/server-live-sync
 ```
 
-Then ask:
+After installation, invoke the skill as `$server-live-sync` in a new turn.
+
+#### Prerequisites
+
+The local computer needs Python 3.9 or later, SSH, SCP, Syncthing, and working SSH access to the server. Syncthing must also be installed on the server, and the remote project directory must already exist. The skill does not create remote projects or run `sudo` on its own.
+
+### Configure a project
+
+Tell Codex three things:
+
+- the SSH host, such as an IP address, domain name, or alias from `~/.ssh/config`
+- the absolute remote project path, such as `/home/alice/projects/vla`
+- the local destination, such as `D:\Projects\vla`
+
+On Windows, the SSH configuration file is normally under `C:\Users\<username>\.ssh\config`. Replace `<username>` with the Windows account name.
+
+Then ask Codex:
 
 ```text
 Use $server-live-sync to mirror gpu-box:/home/alice/projects/vla to D:\Projects\vla.
 ```
 
-On Windows, `~/code/vla` normally resolves to `C:\Users\<username>\code\vla`. It does not refer to a project folder on another drive. Supply an explicit absolute path such as `D:\Projects\vla` when that is the intended destination. The local folder name does not need to match the remote project name.
+The local folder name does not need to match the remote project name. On Windows, use an explicit absolute path when the destination is on another drive.
 
-The server is configured as `sendonly` and the local folder as `receiveonly`. The skill checks prerequisites, runs a dry-run, pairs both Syncthing devices, configures the folder, and verifies its health. Python 3.9+, SSH, SCP, and Syncthing are required. No third-party Python packages are used.
+Codex first runs a dry-run and reports the resolved server path, local path, and synchronization direction. It then pairs the devices, configures both folders, and verifies their health.
 
 ### Startup after reboot
 
-The skill enables the Syncthing user service on a systemd-based server and configures local startup where supported. Verify the server with `systemctl --user is-enabled syncthing.service`, `systemctl --user is-active syncthing.service`, and `loginctl show-user "$USER" -p Linger`. Automatic startup before login requires `Linger=yes`; an administrator can enable it with `sudo loginctl enable-linger alice`, replacing `alice` with the server username. The skill never runs `sudo` by itself. Windows startup runs after the user signs in. Existing folders resume and catch up automatically when both devices are online.
+The skill enables the Syncthing user service on a systemd-based server and configures local startup where supported. On Windows, Syncthing starts after the user signs in.
+
+Check a systemd server with:
+
+```bash
+systemctl --user is-enabled syncthing.service
+systemctl --user is-active syncthing.service
+loginctl show-user "$USER" -p Linger
+```
+
+Startup without an SSH login requires `enabled`, `active`, and `Linger=yes`. If Linger is disabled, an administrator can run `sudo loginctl enable-linger alice`, replacing `alice` with the server username. The skill never runs `sudo` by itself.
+
+### Default exclusions and safety
+
+Model weights, archives, videos, caches, dependencies, and virtual environments are excluded by default. Source files, configuration files, documentation, and logs remain included. The skill configures one explicit project at a time and does not delete or rewrite server code.
 
 ## License
 
