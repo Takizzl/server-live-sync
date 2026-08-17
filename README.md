@@ -84,6 +84,42 @@ Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向
 
 在 Linux 或 macOS 上，也可以写成 `~/code/vla`；它会展开为当前用户主目录下的 `code/vla`。
 
+## 开关机后会自动同步吗？
+
+正式配置时，skill 会尝试为两端设置自动启动：
+
+- Windows：把 `Start-Syncthing.vbs` 放进当前用户的“启动”文件夹，登录 Windows 后启动 Syncthing。
+- Linux 服务器：运行 `systemctl --user enable --now syncthing.service`。
+- macOS：通过 `brew services` 启动 Syncthing。
+
+同步项目会保存在 Syncthing 配置中。正常情况下，每个项目只需配置一次，电脑或服务器重启后不用重新添加。
+
+服务器使用 systemd 时，还要确认用户的 `Linger` 已开启。登录服务器后运行：
+
+```bash
+systemctl --user is-enabled syncthing.service
+systemctl --user is-active syncthing.service
+loginctl show-user "$USER" -p Linger
+```
+
+正常结果应包含 `enabled`、`active` 和 `Linger=yes`。如果服务没有启用，运行：
+
+```bash
+systemctl --user enable --now syncthing.service
+```
+
+如果显示 `Linger=no`，服务器管理员需要运行：
+
+```bash
+sudo loginctl enable-linger alice
+```
+
+把 `alice` 换成实际的服务器用户名。skill 不会自行调用 `sudo`。没有管理员权限时，需要联系服务器管理员开启 Linger。否则 Syncthing 可能要等用户登录服务器后才启动。
+
+Windows 的启动项在用户登录后运行，不是在登录界面运行。可以按 `Win+R`，输入 `shell:startup`，检查里面是否有 `Start-Syncthing.vbs`。
+
+任意一端关机时，同步会暂停。两端重新上线后会自动补齐变化，不用再次运行配置命令。
+
 ## 直接运行脚本
 
 通常交给 Codex 操作即可。排查问题时，可以手动运行：
@@ -170,6 +206,10 @@ Use $server-live-sync to mirror gpu-box:/home/alice/projects/vla to D:\Projects\
 On Windows, `~/code/vla` normally resolves to `C:\Users\<username>\code\vla`. It does not refer to a project folder on another drive. Supply an explicit absolute path such as `D:\Projects\vla` when that is the intended destination. The local folder name does not need to match the remote project name.
 
 The server is configured as `sendonly` and the local folder as `receiveonly`. The skill checks prerequisites, runs a dry-run, pairs both Syncthing devices, configures the folder, and verifies its health. Python 3.9+, SSH, SCP, and Syncthing are required. No third-party Python packages are used.
+
+### Startup after reboot
+
+The skill enables the Syncthing user service on a systemd-based server and configures local startup where supported. Verify the server with `systemctl --user is-enabled syncthing.service`, `systemctl --user is-active syncthing.service`, and `loginctl show-user "$USER" -p Linger`. Automatic startup before login requires `Linger=yes`; an administrator can enable it with `sudo loginctl enable-linger alice`, replacing `alice` with the server username. The skill never runs `sudo` by itself. Windows startup runs after the user signs in. Existing folders resume and catch up automatically when both devices are online.
 
 ## License
 

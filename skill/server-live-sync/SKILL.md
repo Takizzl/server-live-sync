@@ -38,6 +38,8 @@ Run `python scripts/live_sync.py doctor --ssh-host HOST` when setup fails. Requi
 
 The script pairs the two Syncthing devices when needed, enables the remote user service when systemd is available, configures local startup where supported, and stores non-secret project metadata under the user's config directory.
 
+After configuration, inspect `local_startup`, `remote_startup`, and `remote_linger` in the result. Do not claim that reboot startup is ready unless the platform startup step succeeded. On a systemd server, require both `remote_startup=systemd-enabled` and `remote_linger=Linger=yes` for startup without an SSH login. If Linger is disabled, tell the user that an administrator can run `sudo loginctl enable-linger USER`; never run it silently. Explain that the Windows Startup folder launches Syncthing after the user signs in, not before login.
+
 ## Safety
 
 - Reject absolute project paths and `..` traversal.
