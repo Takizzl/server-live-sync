@@ -58,11 +58,19 @@ brew install syncthing
 gpu-box:/home/alice/projects/vla
 ```
 
-希望同步到本地 `~/code/vla`，告诉 Codex：
+### Windows 路径怎么写
+
+`~` 表示当前用户的主目录，不代表任意磁盘上的代码目录。在 Windows 上：
+
+- 用户名为 `Alice` 时，`~/code/vla` 通常是 `C:\Users\Alice\code\vla`
+- 在你的电脑上，如果用户名是 `taki`，它通常是 `C:\Users\taki\code\vla`
+- 如果希望放到 D 盘，必须明确写成 `D:\AProject\code\vla`
+
+本地路径可以自由更换，本地文件夹名称也不必与服务器项目名一致。建议 Windows 用户直接提供完整路径。例如：
 
 ```text
 使用 $server-live-sync，把 gpu-box 上 /home/alice/projects/vla
-实时同步到本地 ~/code/vla
+实时同步到本地 D:\AProject\code\vla
 ```
 
 Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向。确认没有问题后，它会配置两端 Syncthing、配对设备并检查同步状态。
@@ -71,8 +79,10 @@ Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向
 
 ```text
 使用 $server-live-sync，把 gpu-box 上 /home/alice/projects/vla
-同步到本地 ~/code/my-vla
+同步到本地 D:\AProject\code\my-vla
 ```
+
+在 Linux 或 macOS 上，也可以写成 `~/code/vla`；它会展开为当前用户主目录下的 `code/vla`。
 
 ## 直接运行脚本
 
@@ -82,20 +92,21 @@ Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向
 # 检查本地、SSH 和服务器依赖
 python scripts/live_sync.py doctor --ssh-host gpu-box
 
-# 只检查计划，不修改配置
+# Linux / macOS：只检查计划，不修改配置
 python scripts/live_sync.py add \
   --ssh-host gpu-box \
   --remote-root /home/alice/projects \
   --project vla \
   --local-root ~/code \
   --dry-run
+```
 
-# 正式配置
-python scripts/live_sync.py add \
-  --ssh-host gpu-box \
-  --remote-root /home/alice/projects \
-  --project vla \
-  --local-root ~/code
+```powershell
+# Windows：只检查计划，不修改配置
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\AProject\code' --dry-run
+
+# Windows：正式配置
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\AProject\code'
 ```
 
 脚本可以重复执行。已有配置匹配时，它会验证和修复状态，不会重复创建同步项。
@@ -153,8 +164,10 @@ https://github.com/Takizzl/server-live-sync/tree/main/skill/server-live-sync
 Then ask:
 
 ```text
-Use $server-live-sync to mirror gpu-box:/home/alice/projects/vla to ~/code/vla.
+Use $server-live-sync to mirror gpu-box:/home/alice/projects/vla to D:\Projects\vla.
 ```
+
+On Windows, `~/code/vla` normally resolves to `C:\Users\<username>\code\vla`. It does not refer to a project folder on another drive. Supply an explicit absolute path such as `D:\Projects\vla` when that is the intended destination. The local folder name does not need to match the remote project name.
 
 The server is configured as `sendonly` and the local folder as `receiveonly`. The skill checks prerequisites, runs a dry-run, pairs both Syncthing devices, configures the folder, and verifies its health. Python 3.9+, SSH, SCP, and Syncthing are required. No third-party Python packages are used.
 

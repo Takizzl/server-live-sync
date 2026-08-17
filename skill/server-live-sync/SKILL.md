@@ -14,7 +14,9 @@ Collect four values from the request or environment:
 - SSH host or alias, such as `gpu-box` or `alice@example.com`
 - remote root containing projects, such as `/home/alice/projects`
 - project path relative to that root, such as `vla`
-- local root, defaulting to `~/code`
+- local root, defaulting to `~/code` only when the user does not specify one
+
+Treat `~` as the current local user's home directory, not as a generic project drive. For example, `~/code/vla` normally resolves to `C:\Users\Alice\code\vla` on Windows and `/home/alice/code/vla` on Linux. Before changing anything, resolve and report the exact absolute local path. On Windows, prefer the user's explicit absolute path, such as `D:\Projects\vla`, when provided. The local directory and its final name may differ from the remote project name.
 
 Run the bundled script from this skill directory. Always dry-run first:
 
