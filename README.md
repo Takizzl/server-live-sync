@@ -140,6 +140,17 @@ Windows 的启动项在用户登录后运行，不是在登录界面运行。可
 
 任意一端关机时，同步会暂停。两端重新上线后会自动补齐变化，不用再次运行配置命令。
 
+## 同步大概需要多久？
+
+正常联网时，代码、配置和日志等小文件通常会在 **2～10 秒**内出现在另一端。实际耗时取决于网络上传速度、文件大小、文件数量和两台设备的负载：
+
+- 少量小文件或日志追加：通常 2～10 秒。
+- 几十到几百 MB 的文件：通常几十秒到几分钟。
+- 第一次同步整个项目：可能需要几分钟或更久。
+- 一端关机期间产生的变化：两端重新上线后自动补齐。
+
+默认配置约每 2 秒处理一次文件变化，并每 5 分钟执行一次完整扫描，减少文件监听偶尔漏报的影响。这里的 5 分钟是兜底扫描周期，不代表每次同步都要等待 5 分钟。模型权重、数据集、视频、缓存和虚拟环境等大文件默认排除，因此日常代码与日志同步一般较快。
+
 ## 直接运行脚本
 
 通常交给 Codex 操作即可。排查问题时，可以手动运行：
@@ -284,6 +295,17 @@ loginctl show-user "$USER" -p Linger
 ```
 
 Startup without an SSH login requires `enabled`, `active`, and `Linger=yes`. If Linger is disabled, an administrator can run `sudo loginctl enable-linger alice`, replacing `alice` with the server username. The skill never runs `sudo` by itself.
+
+### How long does synchronization take?
+
+With both devices online, small source, configuration, and log updates usually appear on the other device within **2–10 seconds**. Actual time depends on upload bandwidth, file size, file count, and system load:
+
+- a few small files or appended log entries: usually 2–10 seconds
+- tens to hundreds of megabytes: usually tens of seconds to several minutes
+- the first synchronization of a full project: several minutes or longer
+- changes made while one device is offline: caught up automatically after both devices reconnect
+
+The default configuration processes file events with an approximately two-second delay and performs a full scan every five minutes as a fallback for missed events. The five-minute interval is not the normal synchronization delay. Large artifacts such as model weights, datasets, videos, caches, and virtual environments are excluded by default, so routine source and log updates are generally fast.
 
 ### Default exclusions and safety
 
