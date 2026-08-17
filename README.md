@@ -2,7 +2,9 @@
 
 [English](#english) | 中文
 
-这是一个 Codex skill，用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
+很多科研项目运行在远程服务器上：服务器端的 Agent 编写代码、运行实验，本地 Agent 阅读中间文档和训练日志，继续分析结果并规划下一步。这个 Skill 用来连接两端，让本地及时拿到服务器生成的代码和日志。
+
+它使用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
 
 每个项目只需配置一次。以后服务器上新增、修改、重命名或删除文件，本地会自动跟进。电脑关机期间不会同步；重新开机并连接后会补齐变化。
 
@@ -52,25 +54,40 @@ brew install syncthing
 
 ## 让 Codex 配置同步
 
-假设服务器项目是：
+配置时需要说清楚三件事：服务器项目路径、SSH 主机和本地保存路径。
+
+### 服务器项目路径
+
+例如：
 
 ```text
-gpu-box:/home/alice/projects/vla
+/home/alice/projects/vla
 ```
 
-### Windows 路径怎么写
+### SSH 主机
+
+`gpu-box` 是 SSH 主机，可以是服务器 IP、域名，也可以是 `~/.ssh/config` 中配置的别名。Windows 的 SSH 配置文件通常位于 `%USERPROFILE%\.ssh\config`。
+
+下面是 Windows SSH 配置示例，图中的 IP 已打码：
+
+<p align="center">
+  <img src="assets/ssh-config-example.png" alt="Windows SSH config example" width="680">
+</p>
+
+### 本地保存路径
 
 `~` 表示当前用户的主目录，不代表任意磁盘上的代码目录。在 Windows 上：
 
 - 用户名为 `Alice` 时，`~/code/vla` 通常是 `C:\Users\Alice\code\vla`
-- 在你的电脑上，如果用户名是 `taki`，它通常是 `C:\Users\taki\code\vla`
-- 如果希望放到 D 盘，必须明确写成 `D:\AProject\code\vla`
+- 如果希望放到 D 盘，必须明确写成 `D:\Projects\vla`
 
-本地路径可以自由更换，本地文件夹名称也不必与服务器项目名一致。建议 Windows 用户直接提供完整路径。例如：
+本地路径可以自由更换，文件夹名称也不必与服务器项目名一致。建议 Windows 用户直接提供完整路径。
+
+### 发给 Codex 的命令
 
 ```text
 使用 $server-live-sync，把 gpu-box 上 /home/alice/projects/vla
-实时同步到本地 D:\AProject\code\vla
+实时同步到本地 D:\Projects\vla
 ```
 
 Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向。确认没有问题后，它会配置两端 Syncthing、配对设备并检查同步状态。
@@ -79,7 +96,7 @@ Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向
 
 ```text
 使用 $server-live-sync，把 gpu-box 上 /home/alice/projects/vla
-同步到本地 D:\AProject\code\my-vla
+同步到本地 D:\Projects\my-vla
 ```
 
 在 Linux 或 macOS 上，也可以写成 `~/code/vla`；它会展开为当前用户主目录下的 `code/vla`。
@@ -139,10 +156,10 @@ python scripts/live_sync.py add \
 
 ```powershell
 # Windows：只检查计划，不修改配置
-python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\AProject\code' --dry-run
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects' --dry-run
 
 # Windows：正式配置
-python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\AProject\code'
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects'
 ```
 
 脚本可以重复执行。已有配置匹配时，它会验证和修复状态，不会重复创建同步项。
