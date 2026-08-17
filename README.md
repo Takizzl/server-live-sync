@@ -2,9 +2,13 @@
 
 [English](#english) | 中文
 
-**动机：**为什么会有这个Skill？在做科研时，很多伙伴的代码都在服务器上，服务器上有一个**agent负责编写代码**，而本地电脑上有一个**agent负责提供idea**，我们想把服务器产生的中间文档、训练日志，让我本地的agent实时阅读，然后进行下一步idea验证，就有可能会用到这个服务器与本地文件同步的功能，因此让codex写了这个skill。
+### 动机
 
-**作用：**用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
+为什么会有这个 Skill？在做科研时，很多伙伴的代码都在服务器上。服务器端的 Agent 负责编写代码，本地 Agent 负责提供 idea。我们希望把服务器产生的中间文档和训练日志实时同步到本地，让本地 Agent 阅读并协助验证下一步想法，因此让 Codex 编写了这个 Skill。
+
+### 作用
+
+用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
 
 每个项目只需配置一次。以后服务器上新增、修改、重命名或删除文件，本地会自动跟进。电脑关机期间不会同步；重新开机并连接后会补齐变化。
 
@@ -71,7 +75,7 @@ brew install syncthing
 下面是 Windows SSH 配置示例：
 
 <p align="center">
-  <img src="assets/ssh-config-example.png" alt="Windows SSH config example" width="680">
+  <img src="assets/ssh-config-example.png" alt="Windows SSH config example" width="480">
 </p>
 
 ### 本地保存路径
