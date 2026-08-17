@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure a one-way Syncthing project mirror over an existing SSH connection."""
+"""Configure a bidirectional or one-way Syncthing project sync over SSH."""
 
 from __future__ import annotations
 
@@ -99,6 +99,36 @@ def make_folder_id(host: str, remote_path: str, project: str) -> str:
     return f"sls-{slug(PurePosixPath(project).name)}-{digest}"
 
 
+def folder_types(mode: str) -> tuple[str, str]:
+    if mode == "bidirectional":
+        return "sendreceive", "sendreceive"
+    if mode == "mirror":
+        return "sendonly", "receiveonly"
+    raise SyncError(f"Unsupported synchronization mode: {mode}")
+
+
+def required_type_changes(
+    remote_match: tuple[str, dict[str, Any]] | None,
+    local_match: tuple[str, dict[str, Any]] | None,
+    remote_type: str,
+    local_type: str,
+) -> list[dict[str, str]]:
+    changes: list[dict[str, str]] = []
+    if remote_match and remote_match[1].get("type") != remote_type:
+        changes.append({
+            "side": "remote",
+            "from": str(remote_match[1].get("type") or "unknown"),
+            "to": remote_type,
+        })
+    if local_match and local_match[1].get("type") != local_type:
+        changes.append({
+            "side": "local",
+            "from": str(local_match[1].get("type") or "unknown"),
+            "to": local_type,
+        })
+    return changes
+
+
 def list_keys(result: subprocess.CompletedProcess[str]) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
@@ -168,6 +198,15 @@ def install_default_ignore(host: str, remote_path: str, ignore_file: Path) -> st
     result = run(["scp", str(ignore_file), f"{host}:{shlex.quote(target)}"], check=False, timeout=120)
     if result.returncode != 0:
         raise SyncError(f"Could not install remote ignore file: {result.stderr.strip()}")
+    return "installed-default"
+
+
+def install_default_ignore_local(local_path: str, ignore_file: Path) -> str:
+    target = Path(local_path) / ".stignore"
+    if target.exists():
+        return "preserved-existing"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ignore_file, target)
     return "installed-default"
 
 
@@ -310,13 +349,18 @@ def configure(args: argparse.Namespace) -> int:
     if remote_match and local_match and remote_match[0] != local_match[0]:
         raise SyncError("The requested paths are already configured with different folder IDs.")
     folder_id = (remote_match or local_match or (make_folder_id(args.ssh_host, remote_path, args.project), {}))[0]
+    remote_type, local_type = folder_types(args.mode)
+    type_changes = required_type_changes(remote_match, local_match, remote_type, local_type)
 
     plan = {
         "folder_id": folder_id,
+        "mode": args.mode,
         "remote": f"{args.ssh_host}:{remote_path}",
-        "remote_type": "sendonly",
+        "remote_type": remote_type,
         "local": local_path,
-        "local_type": "receiveonly",
+        "local_type": local_type,
+        "type_changes": type_changes,
+        "mode_change_authorized": bool(args.allow_mode_change),
         "watch_delay_seconds": 2,
         "full_scan_seconds": 300,
         "dry_run": bool(args.dry_run),
@@ -324,6 +368,11 @@ def configure(args: argparse.Namespace) -> int:
     print(json.dumps({"plan": plan}, indent=2))
     if args.dry_run:
         return 0
+    if type_changes and not args.allow_mode_change:
+        raise SyncError(
+            "Existing folder directions must change. Review the dry-run, stop edits on both sides, "
+            "commit or back up important files, then rerun with --allow-mode-change."
+        )
 
     local_startup = enable_startup_local()
     remote_startup, linger = enable_startup_remote(args.ssh_host)
@@ -333,27 +382,30 @@ def configure(args: argparse.Namespace) -> int:
     ignore_file = Path(args.ignore_file).expanduser().resolve() if args.ignore_file else Path(__file__).with_name("default.stignore")
     if not ignore_file.is_file():
         raise SyncError(f"Ignore file does not exist: {ignore_file}")
-    ignore_status = install_default_ignore(args.ssh_host, remote_path, ignore_file)
     ensure_local_marker(local_path)
+    ignore_status = {
+        "remote": install_default_ignore(args.ssh_host, remote_path, ignore_file),
+        "local": install_default_ignore_local(local_path, ignore_file),
+    }
 
     if remote_match:
-        if remote_match[1].get("type") != "sendonly":
-            raise SyncError(f"Existing remote folder {folder_id} is not sendonly.")
+        if remote_match[1].get("type") != remote_type:
+            remote_st(args.ssh_host, ["config", "folders", folder_id, "type", "set", remote_type])
     else:
         remote_st(args.ssh_host, [
             "config", "folders", "add", f"--id={folder_id}", f"--label={project.name}",
-            f"--path={remote_path}", "--type=sendonly", "--rescan-intervals=300",
+            f"--path={remote_path}", f"--type={remote_type}", "--rescan-intervals=300",
             "--fswatcher-enabled", "--fswatcher-delays=2",
         ])
     add_folder_device_remote(args.ssh_host, folder_id, local_id)
 
     if local_match:
-        if local_match[1].get("type") != "receiveonly":
-            raise SyncError(f"Existing local folder {folder_id} is not receiveonly.")
+        if local_match[1].get("type") != local_type:
+            local_st(["config", "folders", folder_id, "type", "set", local_type])
     else:
         local_st([
             "config", "folders", "add", f"--id={folder_id}", f"--label={local_name}",
-            f"--path={local_path}", "--type=receiveonly", "--rescan-intervals=300",
+            f"--path={local_path}", f"--type={local_type}", "--rescan-intervals=300",
             "--fswatcher-enabled", "--fswatcher-delays=10",
         ])
     add_folder_device_local(folder_id, remote_id)
@@ -366,6 +418,7 @@ def configure(args: argparse.Namespace) -> int:
         "ssh_host": args.ssh_host,
         "remote_path": remote_path,
         "local_path": local_path,
+        "mode": args.mode,
     }
     save_project(entry, Path(args.config).expanduser())
 
@@ -383,8 +436,9 @@ def configure(args: argparse.Namespace) -> int:
         "configured": True,
         "healthy": healthy,
         **entry,
-        "remote_type": "sendonly",
-        "local_type": "receiveonly",
+        "remote_type": remote_type,
+        "local_type": local_type,
+        "type_changes_applied": type_changes,
         "ignore": ignore_status,
         "local_startup": local_startup,
         "remote_startup": remote_startup,
@@ -436,12 +490,20 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument("--ssh-host", required=True, help="SSH alias or user@host")
     doctor_parser.set_defaults(func=doctor)
 
-    add_parser = subparsers.add_parser("add", help="Configure or verify one project mirror")
+    add_parser = subparsers.add_parser("add", help="Configure or verify one project sync")
     add_parser.add_argument("--ssh-host", required=True, help="SSH alias or user@host")
     add_parser.add_argument("--remote-root", required=True, help="Absolute server directory containing projects")
     add_parser.add_argument("--project", required=True, help="Project path relative to remote root")
-    add_parser.add_argument("--local-root", default=str(Path.home() / "code"), help="Local directory containing project mirrors")
+    add_parser.add_argument("--local-root", default=str(Path.home() / "code"), help="Local directory containing project syncs")
     add_parser.add_argument("--local-name", help="Optional local folder name; defaults to project basename")
+    add_parser.add_argument(
+        "--mode", choices=("bidirectional", "mirror"), default="bidirectional",
+        help="Synchronization direction; bidirectional is the default",
+    )
+    add_parser.add_argument(
+        "--allow-mode-change", action="store_true",
+        help="Authorize changing the direction of an existing Syncthing folder pair",
+    )
     add_parser.add_argument("--ignore-file", help="Optional Syncthing ignore file used only when the remote project has none")
     add_parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Non-secret local metadata file")
     add_parser.add_argument("--wait-seconds", type=int, default=20, help="Maximum verification wait")

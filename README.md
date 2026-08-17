@@ -8,9 +8,9 @@
 
 ### 作用
 
-用 Syncthing 把 Linux 服务器上的项目实时镜像到本地电脑。服务器端设为 `sendonly`，本地设为 `receiveonly`，适合在服务器开发、训练或跑实验，同时在本地查看代码和日志。
+用 Syncthing 在 Linux 服务器和本地电脑之间双向实时同步项目。两端默认都设为 `sendreceive`：本地修改会传到服务器，服务器修改也会传回本地。
 
-每个项目只需配置一次。以后服务器上新增、修改、重命名或删除文件，本地会自动跟进。电脑关机期间不会同步；重新开机并连接后会补齐变化。
+每个项目只需配置一次。以后任意一端新增、修改、重命名或删除文件，另一端都会自动跟进。电脑关机期间不会同步；重新开机并连接后会补齐变化。
 
 ## 安装
 
@@ -90,16 +90,16 @@ brew install syncthing
 
 ```text
 使用 $server-live-sync，把 gpu-box 上 /home/alice/projects/vla
-实时同步到本地 D:\Projects\vla
+和本地 D:\Projects\vla 双向实时同步
 ```
 
-Codex 会先运行 dry-run，展示服务器路径、本地路径和同步方向。确认没有问题后，它会配置两端 Syncthing、配对设备并检查同步状态。
+Codex 会先运行 dry-run，展示服务器路径、本地路径和两端文件夹类型。确认没有问题后，它会配置两端 Syncthing、配对设备并检查同步状态。
 
 如果本地文件夹要换名字，例如保存为 `my-vla`：
 
 ```text
 使用 $server-live-sync，把 gpu-box 上 /home/alice/projects/vla
-同步到本地 D:\Projects\my-vla
+和本地 D:\Projects\my-vla 双向同步
 ```
 
 在 Linux 或 macOS 上，也可以写成 `~/code/vla`；它会展开为当前用户主目录下的 `code/vla`。
@@ -154,18 +154,29 @@ python scripts/live_sync.py add \
   --remote-root /home/alice/projects \
   --project vla \
   --local-root ~/code \
+  --mode bidirectional \
   --dry-run
 ```
 
 ```powershell
 # Windows：只检查计划，不修改配置
-python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects' --dry-run
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects' --mode bidirectional --dry-run
 
 # Windows：正式配置
-python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects'
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects' --mode bidirectional
 ```
 
 脚本可以重复执行。已有配置匹配时，它会验证和修复状态，不会重复创建同步项。
+
+### 把旧版单向项目改成双向
+
+旧版 skill 使用服务器 `sendonly`、本地 `receiveonly`。新版 dry-run 会列出需要修改的方向，但不会自动迁移。先暂停两端编辑，并用 Git 提交或备份重要文件，再执行：
+
+```powershell
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root 'D:\Projects' --mode bidirectional --allow-mode-change
+```
+
+如果只想保留原来的服务器到本地单向镜像，使用 `--mode mirror`。
 
 ## 默认不会同步的内容
 
@@ -176,21 +187,26 @@ python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/pro
 - `.pt`、`.pth`、`.ckpt`、`.safetensors`、`.onnx` 等模型文件
 - 压缩包和常见视频文件
 
-`.py`、`.json`、`.yaml`、`.sh`、`.md` 和 `.log` 等代码与日志文件会正常同步。项目已有 `.stignore` 时，skill 会保留原文件，不会覆盖。
+`.py`、`.json`、`.yaml`、`.sh`、`.md` 和 `.log` 等代码与日志文件会正常同步。skill 会在两端分别安装默认 `.stignore`；任意一端已有该文件时都会保留，不会覆盖。
 
 ## 安全设计
 
 - 一次只配置一个明确项目，不镜像整个 home 目录。
-- 服务器是唯一源端，本地不会反向上传修改。
+- 双向模式会把本地修改和删除传播到服务器，也会把服务器变化传播到本地。
+- 两端同时修改同一文件时，Syncthing 可能生成 `.sync-conflict-*` 冲突副本，需要人工合并。
 - 不调用 Syncthing 的 `folder-override` 操作。
 - 拒绝 `..` 路径穿越、宽泛目录和冲突配置。
-- 不删除或改写服务器代码。
+- 脚本不会直接删除或改写项目代码；同步产生的删除仍会传播到另一端。
 
 ## 常见问题
 
 ### 本地关机后会丢文件吗？
 
 不会。服务器继续记录变化，本地重新上线后会补同步。如果某个临时文件在本地离线期间创建后又被删除，本地不会看到这个短暂存在的文件。
+
+### 两端同时修改同一个文件怎么办？
+
+Syncthing 会保留一个版本，并把另一个版本重命名为 `.sync-conflict-*` 文件。检查差异、手动合并，然后删除不需要的冲突副本。代码项目仍建议使用 Git 提交重要修改。
 
 ### 为什么显示设备未连接？
 
@@ -214,9 +230,9 @@ Research work often spans two machines. An agent on the server writes code and r
 
 ### What it does
 
-The skill uses Syncthing to mirror one explicit project from an SSH-accessible Linux server to a local Windows, Linux, or macOS computer. The server folder is `sendonly` and the local folder is `receiveonly`, so the server remains the source of truth.
+The skill uses Syncthing to synchronize one explicit project between an SSH-accessible Linux server and a local Windows, Linux, or macOS computer. Bidirectional mode is the default, with both folders set to `sendreceive`.
 
-Each project is configured once. New files, edits, renames, and deletions on the server are then reflected locally. If either computer is offline, synchronization pauses and catches up when both devices reconnect.
+Each project is configured once. New files, edits, renames, and deletions on either device are then reflected on the other. If either computer is offline, synchronization pauses and catches up when both devices reconnect. Use `--mode mirror` when the server must remain the sole source.
 
 ### Installation
 
@@ -246,12 +262,14 @@ On Windows, the SSH configuration file is normally under `C:\Users\<username>\.s
 Then ask Codex:
 
 ```text
-Use $server-live-sync to mirror gpu-box:/home/alice/projects/vla to D:\Projects\vla.
+Use $server-live-sync to bidirectionally sync gpu-box:/home/alice/projects/vla with D:\Projects\vla.
 ```
 
 The local folder name does not need to match the remote project name. On Windows, use an explicit absolute path when the destination is on another drive.
 
-Codex first runs a dry-run and reports the resolved server path, local path, and synchronization direction. It then pairs the devices, configures both folders, and verifies their health.
+Codex first runs a dry-run and reports the resolved paths and folder types. It then pairs the devices, configures both folders, and verifies their health.
+
+To convert an existing one-way mirror, stop editing on both devices and commit or back up important files. Review the dry-run, then rerun with `--mode bidirectional --allow-mode-change`. Direction changes are never applied silently.
 
 ### Startup after reboot
 
@@ -269,7 +287,7 @@ Startup without an SSH login requires `enabled`, `active`, and `Linger=yes`. If 
 
 ### Default exclusions and safety
 
-Model weights, archives, videos, caches, dependencies, and virtual environments are excluded by default. Source files, configuration files, documentation, and logs remain included. The skill configures one explicit project at a time and does not delete or rewrite server code.
+Model weights, archives, videos, caches, dependencies, and virtual environments are excluded by default. Source files, configuration files, documentation, and logs remain included. The skill installs default `.stignore` rules independently on both devices and never overwrites an existing file. Bidirectional mode propagates deletions. Simultaneous edits may create `.sync-conflict-*` files that must be merged manually, so important code changes should still be committed with Git.
 
 ## License
 

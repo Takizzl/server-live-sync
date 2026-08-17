@@ -1,4 +1,4 @@
 interface:
   display_name: "科研自动化——Server Live Sync"
-  short_description: "将科研服务器项目与日志安全地实时镜像到本地电脑并保持自动同步"
-  default_prompt: "Use $server-live-sync to safely mirror one research server project to my local computer."
+  short_description: "在科研服务器与本地电脑之间安全地双向实时同步代码和日志"
+  default_prompt: "Use $server-live-sync to bidirectionally synchronize one research server project with my local computer."

@@ -1,11 +1,11 @@
 ---
 name: server-live-sync
-description: Configure, verify, and troubleshoot safe real-time Syncthing mirrors from an explicit project on an SSH-accessible Linux server to a local Windows, macOS, or Linux computer. Use when a user asks Codex to mirror server code or logs locally, add another live-synced project, check synchronization health, or repair a project mirror without copying weights, archives, videos, caches, or virtual environments.
+description: Configure, verify, migrate, and troubleshoot real-time Syncthing synchronization for an explicit project on an SSH-accessible Linux server and a local Windows, macOS, or Linux computer. Use for bidirectional code and log synchronization, safe one-way mirrors, adding projects, checking health, or repairing an existing sync without copying weights, archives, videos, caches, or virtual environments.
 ---
 
 # 科研自动化——Server Live Sync
 
-Configure one explicit project at a time. Keep the server folder `sendonly` and the local folder `receiveonly`.
+Configure one explicit project at a time. Default to bidirectional mode with both folders set to `sendreceive`. Use mirror mode only when the server must remain the sole source.
 
 ## Configure a project
 
@@ -21,16 +21,18 @@ Treat `~` as the current local user's home directory, not as a generic project d
 Run the bundled script from this skill directory. Always dry-run first:
 
 ```bash
-python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root ~/code --dry-run
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root ~/code --mode bidirectional --dry-run
 ```
 
 If the plan is correct, run it without `--dry-run`:
 
 ```bash
-python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root ~/code
+python scripts/live_sync.py add --ssh-host gpu-box --remote-root /home/alice/projects --project vla --local-root ~/code --mode bidirectional
 ```
 
-Use `--local-name NAME` only when the local directory name should differ. Use `--ignore-file PATH` to supply project-specific exclusions. Re-run the same command to verify an existing configuration.
+Use `--mode mirror` for the former server-to-local behavior (`sendonly` on the server and `receiveonly` locally). Use `--local-name NAME` only when the local directory name should differ. Use `--ignore-file PATH` to supply project-specific exclusions. Re-run the same command to verify an existing configuration.
+
+When an existing folder pair has different directions, show the changes in dry-run and stop. Tell the user to pause edits on both sides and commit or back up important files. Apply the migration only after explicit confirmation by adding `--allow-mode-change`. Never change an existing folder direction silently.
 
 ## Prerequisites
 
@@ -47,17 +49,19 @@ After configuration, inspect `local_startup`, `remote_startup`, and `remote_ling
 - Never create a missing remote project unless the user explicitly requests it.
 - Never overwrite an existing `.stignore`; report that defaults were not installed.
 - Exclude model weights, archives, media, caches, dependencies, and virtual environments by default. Keep code and logs included.
-- Never run `folder-override` or delete remote files.
+- Never run `folder-override` or directly delete project files.
+- Warn that bidirectional mode propagates deletions and that simultaneous edits may create `.sync-conflict-*` files.
+- Recommend committing or backing up work before converting an existing mirror to bidirectional mode.
 - Stop on conflicting folder IDs, paths, or directions.
 - Report low server disk space, scan errors, missing markers, or disconnected devices.
 
 ## Expected behavior
 
-- Watch server changes after about two seconds; run a fallback full scan every five minutes.
-- Catch up automatically after the local computer reconnects.
+- Watch changes on both sides and propagate them to the other device; run a fallback full scan every five minutes.
+- Catch up automatically after either computer reconnects.
 - Configure each new top-level project once. Do not auto-discover directories.
 - Treat an initial transfer still in progress as a valid configured state, and report remaining items and bytes.
 
 ## Report
 
-Report the exact remote and local paths, folder ID, both directions, exclusions, startup/service state, connection state, scan errors, remaining transfer size, and disk warning.
+Report the mode, exact remote and local paths, folder ID, both folder types, any applied type migration, exclusions, startup/service state, connection state, scan errors, remaining transfer size, and disk warning.
